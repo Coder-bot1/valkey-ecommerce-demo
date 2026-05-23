@@ -55,27 +55,27 @@
     --heading-six: clamp(1.125rem, 0.769rem + 0.6813vw, 1.5rem);
   /* Font Size End */
   /* template main color */
-    --main-h: 148;
-    --main-s: 59%;
-    --main-l: 39%;
+    --main-h: 230;
+    --main-s: 100%;
+    --main-l: 71%;
     --main: var(--main-h) var(--main-s) var(--main-l);
   /* template main color */
-    --main-two-h: 25;
-    --main-two-s: 100%;
-    --main-two-l: 49%;
+    --main-two-h: 257;
+    --main-two-s: 65%;
+    --main-two-l: 26%;
     --main-two: var(--main-two-h) var(--main-two-s) var(--main-two-l);
   /* White Color */
     --white: 0 0% 100%;
-    --black: 235 49% 14%;
+    --black: 210 19% 13%;
     --light: 0 0% 51%;
     --heading-color: var(--black);
     --body-color: var(--light);
     --body-bg: var(--gray);
-    --border-color: 236 13% 77%;
-    --bg-color-one: #F3FAF2;
-    --bg-color-two: #FFFBF4;
-    --bg-color-three: #F1F1F1;
-    --neutral: #121535;
+    --border-color: 210 29% 87%;
+    --bg-color-one: #F7FBFE;
+    --bg-color-two: #FFFDFA;
+    --bg-color-three: #D3DDE7;
+    --neutral: #1A2026;
     --translate-x-middle: translateX(-50%);
     --translate-y-middle: translateY(-50%);
     --size-2: 0.125rem;
@@ -137,15 +137,15 @@
     --main-two-700: hsl(var(--main-two-h), var(--main-two-s), calc(var(--main-two-l) - var(--main-two-l) * 0.1));
     --main-two-800: hsl(var(--main-two-h), var(--main-two-s), calc(var(--main-two-l) - var(--main-two-l) * 0.2));
     --main-two-900: hsl(var(--main-two-h), var(--main-two-s), calc(var(--main-two-l) - var(--main-two-l) * 0.3));
-    --neutral-50: #ECF1F9;
+    --neutral-50: #F7FBFE;
     --neutral-100: #E6E6E6;
     --neutral-200: #CCCCCC;
     --neutral-300: #B3B3B3;
     --neutral-400: #999999;
     --neutral-500: #808080;
-    --neutral-600: #121535;
-    --neutral-700: #060710;
-    --neutral-800: #11132e;
+    --neutral-600: #1A2026;
+    --neutral-700: #141A1F;
+    --neutral-800: #0F1318;
     --neutral-900: #1A1A1A;
     --gray-50: #F1F1F1;
     --gray-100: #E6E6E6;
@@ -157,31 +157,31 @@
     --gray-700: #4D4D4D;
     --gray-800: #333333;
     --gray-900: #1A1A1A;
-    --light-50: #F5F6FA;
-    --light-100: #F3F4F6;
-    --light-600: #E4F1FF;
-    --light-700: #374151;
-    --light-800: #1F2937;
+    --light-50: #F7FBFE;
+    --light-100: #FFFDFA;
+    --light-600: #D3DDE7;
+    --light-700: #3D4A56;
+    --light-800: #1A2026;
     --primary-50: #E4F1FF;
     --primary-100: #BFDCFF;
     --primary-200: #95C7FF;
     --primary-300: #6BB1FF;
     --primary-400: #519FFF;
-    --primary-500: #458EFF;
-    --primary-600: #487FFF;
-    --primary-700: #486CEA;
-    --primary-800: #4759D6;
-    --primary-900: #4536B6;
-    --danger-50: #FEF2F2;
-    --danger-100: #FEE2E2;
-    --danger-200: #FECACA;
-    --danger-300: #FCA5A5;
-    --danger-400: #F87171;
-    --danger-500: #EF4444;
-    --danger-600: #DC2626;
-    --danger-700: #B91C1C;
-    --danger-800: #991B1B;
-    --danger-900: #7F1D1D;
+    --primary-500: #6983FF;
+    --primary-600: #5570E6;
+    --primary-700: #415DCC;
+    --primary-800: #30176E;
+    --primary-900: #1A0E3D;
+    --danger-50: #FDF2F4;
+    --danger-100: #F9E0E5;
+    --danger-200: #F0BCC5;
+    --danger-300: #E0A2AF;
+    --danger-400: #C46B7E;
+    --danger-500: #9E3F55;
+    --danger-600: #642637;
+    --danger-700: #501E2C;
+    --danger-800: #3C1621;
+    --danger-900: #280F16;
     --success-50: #F0FDF4;
     --success-100: #DCFCE7;
     --success-200: #BBF7D0;
@@ -212,9 +212,9 @@
     --info-700: #1D4ED8;
     --info-800: #1E40AF;
     --info-900: #1E3A8A;
-    --tertiary-50: #d1c8ff;
-    --tertiary-100: #c2b6ff;
-    --tertiary-600: #3C23B5;
+    --tertiary-50: #E8E5F7;
+    --tertiary-100: #BCB5E7;
+    --tertiary-600: #30176E;
     --font-xs: 0.75rem;
     --font-sm: 0.875rem;
     --font-md: 1rem;
@@ -9204,7 +9204,7 @@ input:focus-visible {
 /* Shipping Css End */
 /* ======================= Newsletter Css Start =========================== */
 .newsletter-box {
-    background-color: #121535;
+    background-color: #1A2026;
     padding: 32px clamp(1.5rem, -8.492rem + 13.333vw, 4rem);
 }
 
