@@ -1,2 +1,4 @@
 ﻿/backend/__pycache__
 /backend/tools/__pycache__
+*.log
+backend/agents/__pycache__

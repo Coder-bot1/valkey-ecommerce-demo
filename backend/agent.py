@@ -8,182 +8,101 @@ client = Groq(api_key=GROQ_API_KEY)
 
 SYSTEM_PROMPT = """You are VoiceCart, a friendly voice shopping assistant for an Indian e-commerce store.
 
-You help users:
-- Search for products by name, brand, category, or price
-- Add or remove items from their cart
-- View cart contents and totals
-- Apply coupon codes
-- Place orders
+Your ONLY job is to understand the user's intent and delegate to the right specialist agent.
+You do NOT access products, cart, or order data yourself — you always delegate.
 
-Rules:
-- Keep ALL responses under 2 short sentences — they will be spoken aloud.
-- Always use ₹ (Indian Rupee) for prices.
-- Confirm every cart action by product name: "Added Sony headphones to your cart."
-- If a user says "the first one" or "that one", refer back to the last search results.
-- Be warm, helpful, and conversational.
+Routing rules (pick exactly one):
+- Search products, find, show, filter, browse, details, top rated   → delegate_to_search_agent
+- Trending, recommended, recently viewed, discovery                  → delegate_to_discovery_agent
+- Add/remove/view/clear cart, apply coupon                          → delegate_to_cart_agent
+- Get total, place order, checkout, buy now                         → delegate_to_order_agent
 
-You have access to these tools:
-- search_products: search by keyword, brand, category, price range
-- add_to_cart: add a product to cart
-- remove_from_cart: remove a product from cart
-- get_cart: view all cart items
-- clear_cart: empty the cart
-- apply_coupon: apply a discount code
-- get_cart_total: get the total with discounts
-- place_order: place the final order
-- get_trending: get trending products
-- get_recently_viewed: get recently viewed products
-"""
+After the specialist responds, relay the result warmly in 1-2 short sentences (spoken aloud).
+Always use ₹ for prices. Be warm and conversational."""
 
 TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "search_products",
-            "description": "Search for products by keyword, brand, category, or price range",
+            "name": "delegate_to_search_agent",
+            "description": "Route to search agent for: searching products by keyword/brand/category/price, getting product details, top rated products",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query":     {"type": "string",  "description": "Search keyword e.g. 'wireless headphones'"},
-                    "brand":     {"type": "string",  "description": "Brand name e.g. 'Samsung', 'Apple', 'Nike'"},
-                    "category":  {"type": "string",  "description": "Category e.g. 'smartphones', 'headphones', 'shoes', 'televisions', 'monitors'"},
-                    "min_price": {"type": "integer", "description": "Minimum price in rupees"},
-                    "max_price": {"type": "integer", "description": "Maximum price in rupees"}
-                }
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "add_to_cart",
-            "description": "Add a product to the user's cart",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "product_id": {"type": "string",  "description": "Product ID e.g. 'product:01-samsung-a54'"},
-                    "quantity":   {"type": "integer", "description": "Quantity to add, default 1"}
+                    "task": {"type": "string", "description": "The user's full request, including any context needed (e.g. product names from previous results)"}
                 },
-                "required": ["product_id"]
+                "required": ["task"]
             }
         }
     },
     {
         "type": "function",
         "function": {
-            "name": "remove_from_cart",
-            "description": "Remove a product from the user's cart",
+            "name": "delegate_to_discovery_agent",
+            "description": "Route to discovery agent for: trending products, recently viewed items, personalized recommendations",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "product_id": {"type": "string", "description": "Product ID to remove"}
+                    "task": {"type": "string", "description": "The user's full request"}
                 },
-                "required": ["product_id"]
+                "required": ["task"]
             }
         }
     },
     {
         "type": "function",
         "function": {
-            "name": "get_cart",
-            "description": "Get all items in the user's cart with names, prices and total",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "clear_cart",
-            "description": "Remove all items from the user's cart",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "apply_coupon",
-            "description": "Apply a discount coupon code to the cart",
+            "name": "delegate_to_cart_agent",
+            "description": "Route to cart agent for: add to cart, remove from cart, view cart contents, clear cart, apply coupon code",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "coupon_code": {"type": "string", "description": "Coupon code e.g. 'SAVE10', 'FLAT500'"}
+                    "task": {"type": "string", "description": "The user's full request. If user said 'add that one' include the product details from prior context."}
                 },
-                "required": ["coupon_code"]
+                "required": ["task"]
             }
         }
     },
     {
         "type": "function",
         "function": {
-            "name": "get_cart_total",
-            "description": "Get the cart total with any applied discounts before placing order",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "place_order",
-            "description": "Place the order for all items currently in the cart",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_trending",
-            "description": "Get the most trending products right now",
+            "name": "delegate_to_order_agent",
+            "description": "Route to order agent for: get cart total with discounts, place order, checkout",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "window": {
-                        "type": "string",
-                        "description": "Time window: 'global' for all-time, '1h' for last hour, '24h' for last 24 hours",
-                        "enum": ["global", "1h", "24h"]
-                    }
-                }
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_recently_viewed",
-            "description": "Get products the user recently viewed in this session",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_recommendations",
-            "description": "Get personalized product recommendations based on user browsing history and trending",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_product_details",
-            "description": "Get full details of a specific product by ID",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "product_id": {"type": "string", "description": "Product ID e.g. 'product:01-samsung-a54'"}
+                    "task": {"type": "string", "description": "The user's full request"}
                 },
-                "required": ["product_id"]
+                "required": ["task"]
             }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_top_rated",
-            "description": "Get the top 5 highest rated products in the store",
-            "parameters": {"type": "object", "properties": {}}
         }
     }
 ]
+
+
+def _run_tool(tool_name: str, tool_args: dict, session_id: str) -> str:
+    task = tool_args.get("task", "")
+    try:
+        if tool_name == "delegate_to_search_agent":
+            from agents.search_agent import run as search_run
+            return search_run(task=task, session_id=session_id)
+
+        elif tool_name == "delegate_to_discovery_agent":
+            from agents.discovery_agent import run as discovery_run
+            return discovery_run(task=task, session_id=session_id)
+
+        elif tool_name == "delegate_to_cart_agent":
+            from agents.cart_agent import run as cart_run
+            return cart_run(task=task, session_id=session_id)
+
+        elif tool_name == "delegate_to_order_agent":
+            from agents.order_agent import run as order_run
+            return order_run(task=task, session_id=session_id)
+
+        return f"Unknown agent: {tool_name}"
+
+    except Exception as e:
+        return f"Error from {tool_name}: {str(e)}"
 
 
 def get_conversation_history(session_id: str) -> list:
@@ -197,80 +116,12 @@ def save_conversation_history(session_id: str, history: list):
     r.set(f"conversation:{session_id}", json.dumps(history), ex=SESSION_TTL)
 
 
-def run_tool(tool_name: str, tool_args: dict, session_id: str) -> str:
-    # Import tool implementations — Members 2 & 3 fill these in
-    # Until then, route to stub handlers below
-    try:
-        if tool_name == "search_products":
-            from tools.search_tools import search_products
-            return json.dumps(search_products(**tool_args))
-
-        elif tool_name == "add_to_cart":
-            from tools.cart_tools import add_to_cart
-            return json.dumps(add_to_cart(session_id=session_id, **tool_args))
-
-        elif tool_name == "remove_from_cart":
-            from tools.cart_tools import remove_from_cart
-            return json.dumps(remove_from_cart(session_id=session_id, **tool_args))
-
-        elif tool_name == "get_cart":
-            from tools.cart_tools import get_cart
-            return json.dumps(get_cart(session_id=session_id))
-
-        elif tool_name == "clear_cart":
-            from tools.cart_tools import clear_cart
-            return json.dumps(clear_cart(session_id=session_id))
-
-        elif tool_name == "apply_coupon":
-            from tools.cart_tools import apply_coupon
-            return json.dumps(apply_coupon(session_id=session_id, **tool_args))
-
-        elif tool_name == "get_cart_total":
-            from tools.order_tools import get_cart_total
-            return json.dumps(get_cart_total(session_id=session_id))
-
-        elif tool_name == "place_order":
-            from tools.order_tools import place_order
-            return json.dumps(place_order(session_id=session_id))
-
-        elif tool_name == "get_trending":
-            from tools.discovery_tools import get_trending_products
-            window = tool_args.get("window", "global")
-            return json.dumps(get_trending_products(window=window))
-
-        elif tool_name == "get_recently_viewed":
-            from tools.discovery_tools import get_recently_viewed
-            return json.dumps(get_recently_viewed(session_id=session_id))
-
-        elif tool_name == "get_recommendations":
-            from tools.discovery_tools import get_recommendations
-            return json.dumps(get_recommendations(session_id=session_id))
-
-        elif tool_name == "get_product_details":
-            from tools.search_tools import get_product_details
-            return json.dumps(get_product_details(**tool_args))
-
-        elif tool_name == "get_top_rated":
-            from tools.search_tools import get_top_rated_products
-            return json.dumps(get_top_rated_products())
-
-        else:
-            return json.dumps({"error": f"Unknown tool: {tool_name}"})
-
-    except ImportError:
-        return json.dumps({"error": f"Tool '{tool_name}' not implemented yet."})
-    except Exception as e:
-        return json.dumps({"error": str(e)})
-
-
 def run_agent(message: str, session_id: str) -> dict:
     history = get_conversation_history(session_id)
-
     history.append({"role": "user", "content": message})
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
-    # Agentic loop — keeps going until no more tool calls
     while True:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -283,27 +134,22 @@ def run_agent(message: str, session_id: str) -> dict:
 
         choice = response.choices[0]
 
-        # No tool calls — final text response
         if not choice.message.tool_calls:
             final_text = choice.message.content
             history.append({"role": "assistant", "content": final_text})
             save_conversation_history(session_id, history)
             return {"response": final_text, "session_id": session_id}
 
-        # Has tool calls — execute each one
         messages.append(choice.message)
 
-        tool_results = []
         for tool_call in choice.message.tool_calls:
-            tool_name = tool_call.function.name
-            tool_args = json.loads(tool_call.function.arguments)
-            result = run_tool(tool_name, tool_args, session_id)
-
-            tool_results.append({
+            result = _run_tool(
+                tool_call.function.name,
+                json.loads(tool_call.function.arguments),
+                session_id
+            )
+            messages.append({
                 "role": "tool",
                 "tool_call_id": tool_call.id,
                 "content": result
             })
-
-        messages.extend(tool_results)
-        # Loop back — let the model respond after seeing tool results
