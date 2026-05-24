@@ -21,6 +21,7 @@ import BecomeSellerPage from "./pages/BecomeSellerPage";
 import WishlistPage from "./pages/WishlistPage";
 import VoiceChatPage from "./pages/VoiceChatPage";
 import VoiceAuthPage from "./pages/VoiceAuthPage";
+import VoiceAIAssistant from "./components/VoiceAIAssistant";
 function App() {
   return (
     <BrowserRouter>
@@ -61,6 +62,9 @@ function App() {
         <Route exact path='/voice-chat' element={<VoiceChatPage />} />
         <Route exact path='/voice-auth' element={<VoiceAuthPage />} />
       </Routes>
+
+      {/* Global floating voice assistant — visible on every page */}
+      <VoiceAIAssistant />
     </BrowserRouter>
   );
 }

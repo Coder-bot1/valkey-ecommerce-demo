@@ -10,3 +10,5 @@ litellm
 librosa
 soundfile
 speechbrain
+pydub
+imageio-ffmpeg

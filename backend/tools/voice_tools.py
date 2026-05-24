@@ -8,6 +8,9 @@ import torch
 # Fix for Windows OpenMP conflict with anaconda
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+import subprocess
+import tempfile
+
 from valkey_client import r
 
 ENROLL_KEY = "voice:embedding:{user_id}"
@@ -33,15 +36,52 @@ def _get_encoder():
 
 
 def _load_audio(audio_bytes: bytes, target_sr: int = 16000) -> torch.Tensor:
-    """Load audio bytes → 16kHz mono float32 tensor."""
+    """Load audio bytes → 16kHz mono float32 tensor.
+
+    soundfile handles WAV/FLAC/OGG.
+    Browsers send WebM/Opus — converted via imageio-ffmpeg subprocess call.
+    """
     import librosa
-    audio, sr = sf.read(io.BytesIO(audio_bytes))
-    if audio.ndim > 1:
-        audio = audio.mean(axis=1)
-    audio = audio.astype(np.float32)
-    if sr != target_sr:
-        audio = librosa.resample(audio, orig_sr=sr, target_sr=target_sr)
-    return torch.tensor(audio).unsqueeze(0)  # shape (1, samples)
+
+    # Fast path: soundfile handles WAV directly (used by test scripts)
+    try:
+        audio, sr = sf.read(io.BytesIO(audio_bytes))
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+        audio = audio.astype(np.float32)
+        if sr != target_sr:
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=target_sr)
+        return torch.tensor(audio).unsqueeze(0)
+    except Exception:
+        pass
+
+    # Browser path: WebM/Opus → WAV via explicit ffmpeg binary
+    import imageio_ffmpeg
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+    tmp_in = tempfile.NamedTemporaryFile(suffix=".webm", delete=False)
+    tmp_out_path = tmp_in.name.replace(".webm", ".wav")
+    try:
+        tmp_in.write(audio_bytes)
+        tmp_in.close()
+
+        subprocess.run(
+            [ffmpeg_exe, "-y", "-i", tmp_in.name,
+             "-ar", str(target_sr), "-ac", "1", tmp_out_path],
+            check=True,
+            capture_output=True,
+        )
+
+        audio, _ = sf.read(tmp_out_path)
+        audio = audio.astype(np.float32)
+        return torch.tensor(audio).unsqueeze(0)
+
+    finally:
+        for p in [tmp_in.name, tmp_out_path]:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
 
 def _extract_embedding(audio_tensor: torch.Tensor) -> np.ndarray:

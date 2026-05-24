@@ -1,9 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const API_BASE = 'http://localhost:8000';
 
 const VoiceAuth = () => {
+  const navigate = useNavigate();
+  const [toast, setToast] = useState(null); // { message, type: 'success'|'error' }
   const [userId, setUserId] = useState('');
   const [activeTab, setActiveTab] = useState('enroll');
   const [enrollmentStatus, setEnrollmentStatus] = useState(null); // null | 'enrolled' | 'not_enrolled' | 'error'
@@ -25,6 +27,11 @@ const VoiceAuth = () => {
 
   const enrollRecorderRef = useRef(null);
   const verifyRecorderRef = useRef(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const checkStatus = async () => {
     if (!userId.trim()) return;
@@ -100,7 +107,7 @@ const VoiceAuth = () => {
       form.append('user_id', userId.trim());
       const res = await fetch(`${API_BASE}/api/voice/enroll`, { method: 'POST', body: form });
       const data = await res.json();
-      const success = data.status === 'success';
+      const success = data.status === 'enrolled' || data.status === 'success';
       setEnrollResult({ success, message: data.message || (success ? 'Voice enrolled successfully!' : 'Enrollment failed.') });
       if (success) setEnrollmentStatus('enrolled');
     } catch {
@@ -121,6 +128,10 @@ const VoiceAuth = () => {
       const res = await fetch(`${API_BASE}/api/voice/verify`, { method: 'POST', body: form });
       const data = await res.json();
       setVerifyResult({ verified: data.verified, score: data.score, message: data.message });
+      if (data.verified) {
+        showToast(`Welcome back, ${userId}! Voice verified ✓`);
+        setTimeout(() => navigate('/voice-chat'), 1800);
+      }
     } catch {
       setVerifyResult({ verified: false, score: 0, message: 'Network error. Is the backend running?' });
     } finally {
@@ -445,12 +456,33 @@ const VoiceAuth = () => {
         </div>
       </div>
 
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+          background: toast.type === 'success' ? '#16a34a' : '#dc2626',
+          color: 'white', padding: '14px 28px', borderRadius: 14,
+          fontWeight: 600, fontSize: 15, zIndex: 9999,
+          display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          animation: 'toastIn 0.3s ease',
+          whiteSpace: 'nowrap',
+        }}>
+          <i className={`ph ph-${toast.type === 'success' ? 'check-circle' : 'x-circle'}`} style={{ fontSize: 20 }} />
+          {toast.message}
+        </div>
+      )}
+
       <style>{`
         @keyframes vcPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         @keyframes vaPulseRing {
           0% { box-shadow: 0 0 0 0 rgba(220,53,69,0.4); }
           70% { box-shadow: 0 0 0 16px rgba(220,53,69,0); }
           100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
+        }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
       `}</style>
     </section>

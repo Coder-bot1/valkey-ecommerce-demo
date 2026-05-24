@@ -3,3 +3,5 @@
 *.log
 backend/agents/__pycache__
 .env
+backend/pretrained_models
+frontend/temp
