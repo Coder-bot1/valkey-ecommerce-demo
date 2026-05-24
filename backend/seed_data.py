@@ -2,6 +2,7 @@ import json
 import sys
 import struct
 import numpy as np
+import bcrypt
 from sentence_transformers import SentenceTransformer
 from valkey_client import r
 
@@ -226,6 +227,134 @@ def seed_coupons():
     print(f"Seeded {len(COUPONS)} coupons: {[c['code'] for c in COUPONS]}")
 
 
+USERS = [
+    {
+        "id": "user:01-priya-sharma",
+        "email": "priya.sharma@example.com",
+        "password": "Password@123",
+        "firstName": "Priya",
+        "lastName": "Sharma",
+        "phone": "+91-9876543210",
+        "avatar": "/assets/avatars/priya.jpg",
+        "role": "customer",
+        "addresses": [
+            {
+                "id": "addr:01",
+                "label": "Home",
+                "street": "42 MG Road, Banjara Hills",
+                "city": "Hyderabad",
+                "state": "Telangana",
+                "postalCode": "500034",
+                "country": "IN",
+                "isDefault": True
+            }
+        ],
+        "preferences": {
+            "currency": "INR",
+            "language": "en",
+            "notifications": True
+        }
+    },
+    {
+        "id": "user:02-rahul-verma",
+        "email": "rahul.verma@example.com",
+        "password": "Password@123",
+        "firstName": "Rahul",
+        "lastName": "Verma",
+        "phone": "+91-9123456789",
+        "avatar": "/assets/avatars/rahul.jpg",
+        "role": "customer",
+        "addresses": [
+            {
+                "id": "addr:02",
+                "label": "Home",
+                "street": "15 Park Street",
+                "city": "Mumbai",
+                "state": "Maharashtra",
+                "postalCode": "400001",
+                "country": "IN",
+                "isDefault": True
+            }
+        ],
+        "preferences": {
+            "currency": "INR",
+            "language": "en",
+            "notifications": False
+        }
+    },
+    {
+        "id": "user:03-anjali-singh",
+        "email": "anjali.singh@example.com",
+        "password": "Password@123",
+        "firstName": "Anjali",
+        "lastName": "Singh",
+        "phone": "+91-9988776655",
+        "avatar": "/assets/avatars/anjali.jpg",
+        "role": "customer",
+        "addresses": [
+            {
+                "id": "addr:03",
+                "label": "Home",
+                "street": "8 Connaught Place",
+                "city": "New Delhi",
+                "state": "Delhi",
+                "postalCode": "110001",
+                "country": "IN",
+                "isDefault": True
+            }
+        ],
+        "preferences": {
+            "currency": "INR",
+            "language": "en",
+            "notifications": True
+        }
+    },
+    {
+        "id": "user:04-admin",
+        "email": "admin@voicecart.com",
+        "password": "Admin@123",
+        "firstName": "Admin",
+        "lastName": "VoiceCart",
+        "phone": "+91-9000000000",
+        "avatar": "/assets/avatars/admin.jpg",
+        "role": "admin",
+        "addresses": [],
+        "preferences": {
+            "currency": "INR",
+            "language": "en",
+            "notifications": True
+        }
+    }
+]
+
+
+def seed_users():
+    for user in USERS:
+        plain_password = user.pop("password")
+        password_hash = bcrypt.hashpw(
+            plain_password.encode("utf-8"),
+            bcrypt.gensalt(rounds=12)
+        ).decode("utf-8")
+
+        user_doc = {
+            **user,
+            "passwordHash": password_hash,
+            "createdAt": "2025-01-15T10:30:00Z",
+            "lastLoginAt": None
+        }
+
+        # Store user JSON document
+        r.execute_command("JSON.SET", user["id"], "$", json.dumps(user_doc))
+
+        # Email → userId index for fast login lookup
+        r.set(f"email:{user['email']}", user["id"])
+
+    print(f"Seeded {len(USERS)} users.")
+    print(f"  Login credentials (all passwords: Password@123):")
+    for u in USERS:
+        print(f"    {u['email']}  ({u['role']})")
+
+
 def verify():
     info = r.execute_command("FT.INFO", "idx:products")
     info_dict = dict(zip(info[::2], info[1::2]))
@@ -244,5 +373,6 @@ if __name__ == "__main__":
     create_search_index()
     seed_products(embeddings)
     seed_coupons()
+    seed_users()
     verify()
     print("\nValkey is ready. Foundation complete.")

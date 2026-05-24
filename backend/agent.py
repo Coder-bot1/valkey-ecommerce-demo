@@ -133,14 +133,53 @@ TOOLS = [
         "function": {
             "name": "get_trending",
             "description": "Get the most trending products right now",
-            "parameters": {"type": "object", "properties": {}}
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "window": {
+                        "type": "string",
+                        "description": "Time window: 'global' for all-time, '1h' for last hour, '24h' for last 24 hours",
+                        "enum": ["global", "1h", "24h"]
+                    }
+                }
+            }
         }
     },
     {
         "type": "function",
         "function": {
             "name": "get_recently_viewed",
-            "description": "Get products the user recently viewed",
+            "description": "Get products the user recently viewed in this session",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recommendations",
+            "description": "Get personalized product recommendations based on user browsing history and trending",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_product_details",
+            "description": "Get full details of a specific product by ID",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_id": {"type": "string", "description": "Product ID e.g. 'product:01-samsung-a54'"}
+                },
+                "required": ["product_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_top_rated",
+            "description": "Get the top 5 highest rated products in the store",
             "parameters": {"type": "object", "properties": {}}
         }
     }
@@ -196,11 +235,24 @@ def run_tool(tool_name: str, tool_args: dict, session_id: str) -> str:
 
         elif tool_name == "get_trending":
             from tools.discovery_tools import get_trending_products
-            return json.dumps(get_trending_products())
+            window = tool_args.get("window", "global")
+            return json.dumps(get_trending_products(window=window))
 
         elif tool_name == "get_recently_viewed":
             from tools.discovery_tools import get_recently_viewed
             return json.dumps(get_recently_viewed(session_id=session_id))
+
+        elif tool_name == "get_recommendations":
+            from tools.discovery_tools import get_recommendations
+            return json.dumps(get_recommendations(session_id=session_id))
+
+        elif tool_name == "get_product_details":
+            from tools.search_tools import get_product_details
+            return json.dumps(get_product_details(**tool_args))
+
+        elif tool_name == "get_top_rated":
+            from tools.search_tools import get_top_rated_products
+            return json.dumps(get_top_rated_products())
 
         else:
             return json.dumps({"error": f"Unknown tool: {tool_name}"})
