@@ -13,6 +13,9 @@ search_agent = Agent(
         Always mention: product name, price in ₹, and rating.
         If multiple results, list top 3 with their product IDs so they can be added to cart.
         Keep response under 3 sentences.
+        Always respond in plain natural language. Do not call any transfer or routing tools.
     """,
     tools=[search_products, get_product_details, get_top_rated_products],
+    disallow_transfer_to_parent=True,
+    disallow_transfer_to_peers=True,
 )

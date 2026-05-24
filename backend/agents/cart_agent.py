@@ -12,6 +12,9 @@ cart_agent = Agent(
         Always confirm the action you took by product name, never by product ID.
         Keep responses under 2 sentences.
         Example: "Added Sony WH-1000XM5 to your cart. You now have 2 items."
+        Always respond in plain natural language. Do not call any transfer or routing tools.
     """,
     tools=[add_to_cart, remove_from_cart, get_cart, clear_cart, apply_coupon],
+    disallow_transfer_to_parent=True,
+    disallow_transfer_to_peers=True,
 )
