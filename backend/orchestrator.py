@@ -10,7 +10,6 @@ from agents.order_agent import order_agent
 from agents.search_agent import search_agent
 from config import GROQ_API_KEY
 
-# LiteLLM needs the key in env to route to Groq
 os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
 # Each specialist is wrapped as a regular tool. The orchestrator invokes them
