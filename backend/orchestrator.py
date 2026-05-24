@@ -1,17 +1,17 @@
 import os
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
-from config import OPENROUTER_API_KEY
+from config import GROQ_API_KEY
 from agents.search_agent import search_agent
 from agents.discovery_agent import discovery_agent
 from agents.cart_agent import cart_agent
 from agents.order_agent import order_agent
 
-os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
+os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
 orchestrator = Agent(
     name="orchestrator",
-    model=LiteLlm(model="openrouter/google/gemma-4-31b-it:free"),
+    model=LiteLlm(model="groq/llama-3.3-70b-versatile"),
     description="Root voice shopping assistant that understands intent and routes to the right specialist",
     instruction="""
         You are VoiceCart, a friendly voice shopping assistant for an Indian e-commerce store.
