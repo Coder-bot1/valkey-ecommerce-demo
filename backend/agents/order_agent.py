@@ -1,11 +1,11 @@
-import os
 from google.adk.agents import Agent
-from google.adk.models.lite_llm import LiteLlm
+
+from agents._model import make_model
 from tools.order_tools import get_cart_total, place_order
 
 order_agent = Agent(
     name="order_agent",
-    model=LiteLlm(model="groq/llama-3.3-70b-versatile"),
+    model=make_model(),
     description="Handles checkout, cart total calculation, and order placement",
     instruction="""
         You handle orders and checkout for VoiceCart.

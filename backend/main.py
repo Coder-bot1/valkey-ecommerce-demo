@@ -51,6 +51,7 @@ async def chat(req: ChatRequest):
             app_name="voicecart",
             user_id=req.session_id,
             session_id=req.session_id,
+            state={"voicecart_session_id": req.session_id},
         )
     except Exception:
         pass  # session may already exist

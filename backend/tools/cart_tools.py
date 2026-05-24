@@ -1,13 +1,39 @@
 """Cart tools backed by Valkey.
 
+The session id is taken from the ADK ToolContext (see _session_id) so the LLM
+never has to pass it. This is what tied a cart write and read together —
+without it the model invented different ids per call and the cart looked empty.
+
 Data model:
   cart:{session_id}        -> hash of product_id -> quantity (TTL = CART_TTL)
   cart_coupon:{session_id} -> string holding the applied coupon code (TTL = CART_TTL)
 """
 import json
 
+from google.adk.tools.tool_context import ToolContext
+
 from valkey_client import r
 from config import CART_TTL
+
+
+def _session_id(tool_context: ToolContext) -> str:
+    """Pull the real session id out of the ADK invocation context.
+
+    Preference order:
+    1. Session state (`voicecart_session_id`) — survives AgentTool nesting since
+       state is forwarded from parent to child.
+    2. Invocation user_id — works when the tool runs directly under the root
+       runner (e.g. unit tests, future callers without nesting).
+    """
+    state = getattr(tool_context, "state", None)
+    if state is not None:
+        try:
+            sid = state.get("voicecart_session_id")
+        except Exception:
+            sid = None
+        if sid:
+            return sid
+    return tool_context._invocation_context.user_id
 
 
 def _cart_key(session_id: str) -> str:
@@ -34,11 +60,17 @@ def _get_coupon(code: str) -> dict | None:
     return json.loads(raw)
 
 
-def add_to_cart(session_id: str, product_id: str, quantity: int = 1) -> dict:
-    """Add a product to the user's cart."""
+def add_to_cart(product_id: str, quantity: int, tool_context: ToolContext) -> dict:
+    """Add a product to the user's cart.
+
+    Args:
+        product_id: Product id, e.g. 'product:01-samsung-a54'.
+        quantity: How many units to add. Must be at least 1.
+    """
     if quantity <= 0:
         return {"status": "error", "message": "Quantity must be positive"}
 
+    session_id = _session_id(tool_context)
     product = _get_product(product_id)
     if not product:
         return {"status": "error", "message": f"Product {product_id} not found"}
@@ -69,8 +101,13 @@ def add_to_cart(session_id: str, product_id: str, quantity: int = 1) -> dict:
     }
 
 
-def remove_from_cart(session_id: str, product_id: str) -> dict:
-    """Remove a product from the user's cart."""
+def remove_from_cart(product_id: str, tool_context: ToolContext) -> dict:
+    """Remove a product entirely from the user's cart.
+
+    Args:
+        product_id: Product id to remove.
+    """
+    session_id = _session_id(tool_context)
     cart_key = _cart_key(session_id)
     product = _get_product(product_id)
     name = product["name"] if product else product_id
@@ -86,11 +123,12 @@ def remove_from_cart(session_id: str, product_id: str) -> dict:
     return {"status": "removed", "product_id": product_id, "product_name": name}
 
 
-def update_quantity(session_id: str, product_id: str, quantity: int) -> dict:
-    """Update quantity of a product in cart."""
+def update_quantity(product_id: str, quantity: int, tool_context: ToolContext) -> dict:
+    """Set the quantity of a product already in the cart. Quantity 0 removes it."""
     if quantity <= 0:
-        return remove_from_cart(session_id, product_id)
+        return remove_from_cart(product_id, tool_context)
 
+    session_id = _session_id(tool_context)
     product = _get_product(product_id)
     if not product:
         return {"status": "error", "message": f"Product {product_id} not found"}
@@ -116,8 +154,9 @@ def update_quantity(session_id: str, product_id: str, quantity: int) -> dict:
     }
 
 
-def get_cart(session_id: str) -> dict:
-    """Get all cart items with prices and total."""
+def get_cart(tool_context: ToolContext) -> dict:
+    """Return all items in the cart with names, prices and totals."""
+    session_id = _session_id(tool_context)
     cart_key = _cart_key(session_id)
     raw = r.hgetall(cart_key)
     if not raw:
@@ -129,7 +168,6 @@ def get_cart(session_id: str) -> dict:
         qty = int(qty)
         product = _get_product(product_id)
         if not product:
-            # Product was removed from catalog — drop it from the cart silently.
             r.hdel(cart_key, product_id)
             continue
 
@@ -150,15 +188,20 @@ def get_cart(session_id: str) -> dict:
     }
 
 
-def clear_cart(session_id: str) -> dict:
-    """Clear all items from cart."""
+def clear_cart(tool_context: ToolContext) -> dict:
+    """Remove all items from the cart."""
+    session_id = _session_id(tool_context)
     r.delete(_cart_key(session_id))
     r.delete(_coupon_key(session_id))
     return {"status": "cart_cleared"}
 
 
-def apply_coupon(session_id: str, coupon_code: str) -> dict:
-    """Apply a coupon code to the cart."""
+def apply_coupon(coupon_code: str, tool_context: ToolContext) -> dict:
+    """Apply a coupon code to the cart.
+
+    Args:
+        coupon_code: e.g. 'SAVE10', 'FLAT500', 'VOICECART'.
+    """
     coupon_code = (coupon_code or "").strip().upper()
     if not coupon_code:
         return {"status": "invalid_coupon", "message": "Coupon code is required"}
@@ -170,7 +213,7 @@ def apply_coupon(session_id: str, coupon_code: str) -> dict:
     if not coupon.get("active", False):
         return {"status": "inactive_coupon", "code": coupon_code, "message": "Coupon is no longer active"}
 
-    cart = get_cart(session_id)
+    cart = get_cart(tool_context)
     if cart["subtotal"] == 0:
         return {"status": "empty_cart", "message": "Add items to cart before applying a coupon"}
 
@@ -183,6 +226,7 @@ def apply_coupon(session_id: str, coupon_code: str) -> dict:
             "subtotal": cart["subtotal"],
         }
 
+    session_id = _session_id(tool_context)
     r.set(_coupon_key(session_id), coupon_code, ex=CART_TTL)
 
     return {

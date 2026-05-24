@@ -1,5 +1,7 @@
 """Order tools backed by Valkey.
 
+Session/user identity comes from the ADK ToolContext, not from the LLM.
+
 Data model:
   order:{order_id}     -> JSON document for the placed order
   user_orders:{user}   -> sorted set of order ids scored by created_at timestamp
@@ -9,8 +11,12 @@ import json
 import time
 import uuid
 
+from google.adk.tools.tool_context import ToolContext
+
 from valkey_client import r
-from tools.cart_tools import _coupon_key, _get_coupon, clear_cart, get_cart
+from tools.cart_tools import (
+    _coupon_key, _get_coupon, _session_id, clear_cart, get_cart,
+)
 
 
 def _calculate_discount(subtotal: int, coupon: dict | None) -> tuple[int, dict | None]:
@@ -34,9 +40,10 @@ def _calculate_discount(subtotal: int, coupon: dict | None) -> tuple[int, dict |
     }
 
 
-def get_cart_total(session_id: str) -> dict:
-    """Get cart total with any discount applied."""
-    cart = get_cart(session_id)
+def get_cart_total(tool_context: ToolContext) -> dict:
+    """Return cart subtotal, applied discount, and final total."""
+    session_id = _session_id(tool_context)
+    cart = get_cart(tool_context)
     subtotal = cart["subtotal"]
 
     code = r.get(_coupon_key(session_id))
@@ -53,13 +60,16 @@ def get_cart_total(session_id: str) -> dict:
     }
 
 
-def place_order(session_id: str, user_id: str = "guest") -> dict:
-    """Place the order for all items in cart."""
-    totals = get_cart_total(session_id)
+def place_order(tool_context: ToolContext) -> dict:
+    """Place an order for everything currently in the cart."""
+    session_id = _session_id(tool_context)
+    user_id = session_id  # one session == one shopper for now
+
+    totals = get_cart_total(tool_context)
     if not totals["items"]:
         return {"status": "empty_cart", "message": "Cart is empty"}
 
-    # Re-check stock and decrement atomically per product.
+    # Re-check stock for every item before committing.
     for item in totals["items"]:
         raw = r.execute_command("JSON.GET", item["product_id"])
         if not raw:
@@ -98,13 +108,12 @@ def place_order(session_id: str, user_id: str = "guest") -> dict:
     r.execute_command("JSON.SET", order_id, "$", json.dumps(order_doc))
     r.zadd(f"user_orders:{user_id}", {order_id: created_at})
 
-    # Decrement stock for each item.
     for item in totals["items"]:
         r.execute_command(
             "JSON.NUMINCRBY", item["product_id"], "$.stock", -item["quantity"]
         )
 
-    clear_cart(session_id)
+    clear_cart(tool_context)
 
     return {
         "status": "order_placed",
@@ -116,8 +125,9 @@ def place_order(session_id: str, user_id: str = "guest") -> dict:
     }
 
 
-def get_order_history(user_id: str) -> dict:
-    """Get past orders for a user."""
+def get_order_history(tool_context: ToolContext) -> dict:
+    """Return the most recent orders for the current user."""
+    user_id = _session_id(tool_context)
     order_ids = r.zrevrange(f"user_orders:{user_id}", 0, 19)
     orders = []
     for oid in order_ids:
@@ -135,7 +145,7 @@ def get_order_history(user_id: str) -> dict:
 
 
 def get_order_status(order_id: str) -> dict:
-    """Get the status of a specific order."""
+    """Get the status of a specific order by its id."""
     raw = r.execute_command("JSON.GET", order_id)
     if not raw:
         return {"status": "not_found", "order_id": order_id}

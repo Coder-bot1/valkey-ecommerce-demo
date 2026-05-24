@@ -1,11 +1,13 @@
-import os
 from google.adk.agents import Agent
-from google.adk.models.lite_llm import LiteLlm
-from tools.discovery_tools import get_trending_products, get_recently_viewed, get_recommendations
+
+from agents._model import make_model
+from tools.discovery_tools import (
+    get_recently_viewed, get_recommendations, get_trending_products,
+)
 
 discovery_agent = Agent(
     name="discovery_agent",
-    model=LiteLlm(model="groq/llama-3.3-70b-versatile"),
+    model=make_model(),
     description="Shows trending products, recently viewed items, and personalized recommendations",
     instruction="""
         You are a discovery specialist for VoiceCart.

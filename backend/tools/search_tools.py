@@ -1,4 +1,5 @@
 import json
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from valkey_client import r, r_binary
@@ -52,33 +53,43 @@ def _parse_knn_results(raw) -> dict:
     return {"products": products, "count": len(products)}
 
 
-def search_products(query: str = None, brand: str = None, category: str = None,
-                    min_price: int = None, max_price: int = None) -> dict:
+def search_products(query: str = "", brand: str = "", category: str = "",
+                    min_price: int = -1, max_price: int = -1) -> dict:
     """Search products by semantic query, brand, category, or price range.
 
     Args:
-        query: Natural language search e.g. 'wireless headphones with long battery'
-        brand: Brand name e.g. 'Samsung', 'Apple', 'Sony', 'Nike', 'boAt'
-        category: Category e.g. 'smartphones', 'headphones', 'shoes', 'televisions', 'monitors'
-        min_price: Minimum price in rupees
-        max_price: Maximum price in rupees
+        query: Natural language search e.g. 'wireless headphones with long battery'.
+            Pass an empty string when not searching by keyword.
+        brand: Brand name e.g. 'Samsung', 'Apple', 'Sony', 'Nike', 'boAt'.
+            Pass an empty string when not filtering by brand.
+        category: Category e.g. 'smartphones', 'headphones', 'shoes', 'televisions', 'monitors'.
+            Pass an empty string when not filtering by category.
+        min_price: Minimum price in rupees. Pass -1 for no lower bound.
+        max_price: Maximum price in rupees. Pass -1 for no upper bound.
 
     Returns:
         List of matching products with name, brand, price, rating
     """
     try:
+        # Normalize sentinel defaults to None for internal logic
+        query = query.strip() if query else ""
+        brand = brand.strip() if brand else ""
+        category = category.strip() if category else ""
+        min_price_val = min_price if isinstance(min_price, int) and min_price >= 0 else None
+        max_price_val = max_price if isinstance(max_price, int) and max_price >= 0 else None
+
         # Build filter parts for TAG and NUMERIC fields
         filters = []
         if brand:
             filters.append(f"@brand:{{{brand}}}")
         if category:
             filters.append(f"@category:{{{category}}}")
-        if min_price is not None and max_price is not None:
-            filters.append(f"@price:[{min_price} {max_price}]")
-        elif max_price is not None:
-            filters.append(f"@price:[0 {max_price}]")
-        elif min_price is not None:
-            filters.append(f"@price:[{min_price} +inf]")
+        if min_price_val is not None and max_price_val is not None:
+            filters.append(f"@price:[{min_price_val} {max_price_val}]")
+        elif max_price_val is not None:
+            filters.append(f"@price:[0 {max_price_val}]")
+        elif min_price_val is not None:
+            filters.append(f"@price:[{min_price_val} +inf]")
 
         filter_str = " ".join(filters)
 
@@ -100,17 +111,17 @@ def search_products(query: str = None, brand: str = None, category: str = None,
 
         else:
             # Filter-only — use pre-built index sets for speed
-            if brand and not category and not min_price and not max_price:
+            if brand and not category and min_price_val is None and max_price_val is None:
                 ids = list(r.smembers(f"brand:{brand.lower()}"))
                 return _fetch_by_ids(ids)
 
-            if category and not brand and not min_price and not max_price:
+            if category and not brand and min_price_val is None and max_price_val is None:
                 ids = list(r.smembers(f"category:{category.lower()}"))
                 return _fetch_by_ids(ids)
 
             # Price range or combined — scan price_index sorted set
-            lo = min_price if min_price is not None else "-inf"
-            hi = max_price if max_price is not None else "+inf"
+            lo = min_price_val if min_price_val is not None else "-inf"
+            hi = max_price_val if max_price_val is not None else "+inf"
             ids = r.zrangebyscore("price_index", lo, hi)
 
             if brand:
