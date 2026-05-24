@@ -183,7 +183,7 @@ def generate_embeddings(products):
 
 def create_search_index():
     try:
-        r.execute_command("FT.DROPINDEX", "idx:products", "DD")
+        r.execute_command("FT.DROPINDEX", "idx:products")
         print("Dropped existing index.")
     except Exception:
         pass
