@@ -7,6 +7,7 @@ from google.adk.sessions import InMemorySessionService
 Content = types.Content
 Part = types.Part
 from orchestrator import orchestrator
+from voice_router import router as voice_router
 import uvicorn
 
 app = FastAPI(title="VoiceCart AI", version="2.0.0")
@@ -17,6 +18,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(voice_router)
 
 session_service = InMemorySessionService()
 runner = Runner(

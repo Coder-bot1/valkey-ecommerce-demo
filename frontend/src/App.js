@@ -19,6 +19,8 @@ import VendorTwoPage from "./pages/VendorTwoPage";
 import VendorTwoDetailsPage from "./pages/VendorTwoDetailsPage";
 import BecomeSellerPage from "./pages/BecomeSellerPage";
 import WishlistPage from "./pages/WishlistPage";
+import VoiceChatPage from "./pages/VoiceChatPage";
+import VoiceAuthPage from "./pages/VoiceAuthPage";
 function App() {
   return (
     <BrowserRouter>
@@ -56,6 +58,8 @@ function App() {
           path='/vendor-two-details'
           element={<VendorTwoDetailsPage />}
         />
+        <Route exact path='/voice-chat' element={<VoiceChatPage />} />
+        <Route exact path='/voice-auth' element={<VoiceAuthPage />} />
       </Routes>
     </BrowserRouter>
   );
