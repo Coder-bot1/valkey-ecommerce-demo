@@ -1,16 +1,28 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from agent import run_agent
+from google.adk.runners import Runner, types
+from google.adk.sessions import InMemorySessionService
+
+Content = types.Content
+Part = types.Part
+from orchestrator import orchestrator
 import uvicorn
 
-app = FastAPI(title="VoiceCart AI", version="1.0.0")
+app = FastAPI(title="VoiceCart AI", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+session_service = InMemorySessionService()
+runner = Runner(
+    agent=orchestrator,
+    session_service=session_service,
+    app_name="voicecart",
 )
 
 
@@ -27,11 +39,7 @@ class ChatResponse(BaseModel):
 @app.get("/health")
 def health():
     from valkey_client import ping
-    valkey_ok = ping()
-    return {
-        "status": "ok" if valkey_ok else "degraded",
-        "valkey": valkey_ok
-    }
+    return {"status": "ok", "valkey": ping()}
 
 
 @app.post("/api/agent/chat", response_model=ChatResponse)
@@ -39,8 +47,27 @@ async def chat(req: ChatRequest):
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     try:
-        result = run_agent(req.message.strip(), req.session_id)
-        return ChatResponse(**result)
+        await session_service.create_session(
+            app_name="voicecart",
+            user_id=req.session_id,
+            session_id=req.session_id,
+        )
+    except Exception:
+        pass  # session may already exist
+
+    try:
+        content = Content(role="user", parts=[Part(text=req.message.strip())])
+        response_text = ""
+
+        async for event in runner.run_async(
+            user_id=req.session_id,
+            session_id=req.session_id,
+            new_message=content,
+        ):
+            if event.is_final_response():
+                response_text = event.content.parts[0].text
+
+        return ChatResponse(response=response_text, session_id=req.session_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
